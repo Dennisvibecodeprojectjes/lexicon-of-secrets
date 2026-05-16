@@ -1,0 +1,1256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Lexicon of Secrets</title>
+    <!-- App & Mobile settings -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#1a1a1a">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="apple-touch-icon" href="icon.png">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Courier+Prime:ital,wght@0,400;0,700;1,400&family=EB+Garamond:ital,wght@0,400;0,700;1,400&family=Playfair+Display:ital,wght@0,600;0,800;1,600&display=swap');
+
+        :root {
+            --bg-color: #1a1a1a;
+            --text-light: #e0d8c3;
+            --gold: #8e7341;
+            --blood-red: #4a0404;
+            --grid-size: 8;
+            --tile-size: 12.5%; 
+        }
+
+        * {
+            box-sizing: border-box; margin: 0; padding: 0;
+            user-select: none; -webkit-touch-callout: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            background-color: var(--bg-color); color: var(--text-light);
+            font-family: 'EB Garamond', serif; display: flex;
+            justify-content: center; align-items: center; min-height: 100vh;
+            overflow: hidden; 
+            background-size: cover; background-position: center;
+            transition: background-image 1s ease-in-out;
+        }
+
+        h1, h2, h3, .btn, .hud-value, .tab-btn { font-family: 'Playfair Display', serif; }
+
+        .screen {
+            display: none; width: 100%; max-width: 500px; height: 100vh;
+            flex-direction: column; align-items: center; padding: 20px;
+            overflow-y: auto; position: relative;
+        }
+        .active { display: flex; }
+
+        h1 { color: var(--gold); font-size: 2.5rem; text-align: center; margin-bottom: 10px; text-shadow: 2px 2px 4px rgba(0,0,0,0.8); }
+        .subtitle { font-size: 1.2rem; font-style: italic; color: var(--blood-red); margin-bottom: 40px; }
+        
+        .btn {
+            background: rgba(0,0,0,0.5); border: 1px solid var(--gold); color: var(--gold);
+            padding: 12px 24px; font-size: 1.2rem; margin: 10px; cursor: pointer;
+            transition: all 0.3s ease; width: 80%; max-width: 300px; text-transform: uppercase; letter-spacing: 2px;
+            backdrop-filter: blur(4px);
+        }
+        .btn:hover, .btn:active { background: var(--blood-red); border-color: var(--blood-red); color: var(--text-light); }
+
+        .top-bar {
+            display: flex; justify-content: space-between; width: 100%;
+            padding: 10px 0; border-bottom: 1px solid var(--gold); margin-bottom: 15px; font-size: 1.2rem;
+            background: rgba(0,0,0,0.4); padding: 10px; border-radius: 4px;
+        }
+
+        /* Level Select */
+        .chapter-title { color: var(--blood-red); margin: 20px 0 10px; text-align: center; border-bottom: 1px solid var(--blood-red); width: 100%; padding-bottom: 5px; background: rgba(0,0,0,0.3); }
+        .level-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; width: 100%; margin-bottom: 20px; }
+        .level-btn { background: rgba(20,20,20,0.8); border: 1px solid var(--gold); color: var(--text-light); padding: 15px 0; cursor: pointer; font-size: 1.1rem; }
+        .level-btn:disabled { border-color: #333; color: #444; cursor: not-allowed; background: rgba(0,0,0,0.6); }
+
+        /* Game HUD */
+        .game-hud {
+            display: flex; justify-content: space-between; width: 100%;
+            background: rgba(0,0,0,0.6); border: 1px solid var(--gold); padding: 10px; margin-bottom: 15px; backdrop-filter: blur(5px);
+        }
+        .hud-item { display: flex; flex-direction: column; align-items: center; }
+        .hud-label { font-size: 0.9rem; color: #aaa; text-transform: uppercase; }
+        .hud-value { font-size: 1.5rem; color: var(--gold); text-shadow: 1px 1px 2px black; }
+        .objective-text { text-align: center; margin-bottom: 15px; font-size: 1.1rem; color: var(--text-light); font-style: italic; background: rgba(0,0,0,0.5); padding: 5px 10px; border-radius: 4px; }
+
+        /* Game Board */
+        #game-board-container {
+            width: 100%; max-width: 400px; aspect-ratio: 1/1;
+            background: rgba(10, 10, 10, 0.85); border: 2px solid var(--gold);
+            position: relative; box-shadow: 0 0 30px rgba(142, 115, 65, 0.15);
+            overflow: hidden; touch-action: none;
+        }
+
+        #grid-bg-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; pointer-events: none; display: grid; grid-template-columns: repeat(var(--grid-size), 1fr); grid-template-rows: repeat(var(--grid-size), 1fr); }
+        #tile-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 2; pointer-events: none; }
+        #ink-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 3; pointer-events: none; display: grid; grid-template-columns: repeat(var(--grid-size), 1fr); grid-template-rows: repeat(var(--grid-size), 1fr); }
+        .grid-cell { width: 100%; height: 100%; border: 1px solid rgba(142, 115, 65, 0.15); }
+
+        /* Ink Overlay */
+        .ink-overlay {
+            width: 100%; height: 100%;
+            background: radial-gradient(circle, rgba(0,0,0,0.95) 20%, rgba(10,10,10,0.8) 60%, transparent 90%);
+            opacity: 0; transition: opacity 0.4s ease;
+            pointer-events: none; mix-blend-mode: multiply;
+        }
+        .ink-overlay.active { opacity: 1; animation: pulseInk 3s infinite; }
+        @keyframes pulseInk { 0% { opacity: 0.85; transform: scale(1); } 50% { opacity: 1; transform: scale(1.05); } 100% { opacity: 0.85; transform: scale(1); } }
+
+        /* Tiles */
+        .tile {
+            position: absolute; width: var(--tile-size); height: var(--tile-size);
+            display: flex; justify-content: center; align-items: center;
+            font-size: 2rem; cursor: pointer; pointer-events: auto;
+            transition: top 0.3s ease-in-out, left 0.3s ease-in-out, transform 0.2s;
+            border-radius: 8px; box-shadow: inset 0 0 15px rgba(0,0,0,0.8), 2px 2px 5px rgba(0,0,0,0.5);
+            background-size: cover; background-position: center; border: 1px solid rgba(255,255,255,0.1);
+            background-image: url('https://www.transparenttextures.com/patterns/aged-paper.png');
+            background-blend-mode: multiply;
+        }
+        .special-row::after { content: '↔'; position: absolute; color: white; font-size: 1rem; text-shadow: 0 0 5px black; font-weight: bold; }
+        .special-col::after { content: '↕'; position: absolute; color: white; font-size: 1rem; text-shadow: 0 0 5px black; font-weight: bold; }
+        .special-bomb { border: 2px solid var(--blood-red); box-shadow: 0 0 15px var(--blood-red); }
+        .special-color { font-size: 2.5rem; filter: drop-shadow(0 0 8px var(--gold)); border-radius: 50%; background: var(--bg-color) !important; }
+        .evidence-tile { filter: drop-shadow(0 0 8px var(--blood-red)); animation: pulse 2s infinite; border: 1px solid var(--blood-red); }
+        .ink-bleed { animation: inkBleed 0.4s forwards; }
+        @keyframes inkBleed { 0% { filter: blur(0px); opacity: 1; transform: scale(1); } 100% { filter: blur(10px); opacity: 0; transform: scale(0); } }
+
+/* --- AUDIO CONTROLS --- */
+        #mute-btn {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(10, 10, 10, 0.8);
+            border: 1px solid var(--gold);
+            color: var(--gold);
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            font-size: 1.5rem;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            z-index: 1000;
+            box-shadow: 0 0 10px rgba(0,0,0,0.8);
+            backdrop-filter: blur(5px);
+            transition: all 0.3s ease;
+        }
+        #mute-btn:hover {
+            background: var(--blood-red);
+            color: var(--text-light);
+            transform: scale(1.1);
+        }
+        
+        /* Library & Inspection */
+        .library-tabs { display: flex; width: 100%; margin-bottom: 15px; }
+        .tab-btn { flex: 1; background: rgba(0,0,0,0.5); border: 1px solid var(--gold); color: var(--gold); padding: 10px; cursor: pointer; text-transform: uppercase; font-size: 0.8rem; letter-spacing: 1px; }
+        .tab-btn.active { background: var(--gold); color: var(--bg-color); }
+        
+        .lib-section { display: none; width: 100%; grid-template-columns: repeat(2, 1fr); gap: 15px; padding-bottom: 20px; }
+        .lib-section.active { display: grid; }
+        #lib-logs { grid-template-columns: 1fr; } /* Storylogs nemen de hele breedte */
+
+        .lib-item {
+            background: #2a2a2a; border: 1px solid var(--gold); aspect-ratio: 3/4;
+            display: flex; flex-direction: column; align-items: center; justify-content: flex-end;
+            cursor: pointer; background-size: cover; background-position: center;
+            position: relative; text-align: center; box-shadow: 0 4px 8px rgba(0,0,0,0.5); overflow: hidden;
+        }
+        .lib-item-name { background: rgba(0,0,0,0.85); color: var(--gold); width: 100%; padding: 8px; font-size: 0.95rem; border-top: 1px solid var(--gold); }
+
+        .log-item {
+            background: rgba(224, 216, 195, 0.9); color: #111; padding: 15px;
+            border: 1px solid var(--gold); cursor: pointer; font-family: 'Courier Prime', monospace;
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.2);
+        }
+        .log-item h3 { margin-bottom: 5px; font-family: 'Playfair Display', serif; color: var(--blood-red); }
+
+        .locked-item {
+            background: rgba(10,10,10,0.8) !important; color: var(--gold);
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            border-style: dashed; cursor: not-allowed; background-image: none !important;
+        }
+        .locked-item .question-mark { font-size: 3rem; margin-bottom: 10px; opacity: 0.5; }
+        .locked-item .locked-text { font-size: 0.8rem; font-style: italic; opacity: 0.7; }
+
+        #inspection-modal, #modal {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(10,10,10,0.98); z-index: 100;
+            flex-direction: column; justify-content: center; align-items: center; text-align: center; padding: 20px;
+        }
+        #inspection-img { width: 80%; max-width: 300px; aspect-ratio: 3/4; background-size: cover; background-position: center; border: 2px solid var(--gold); margin-bottom: 20px; box-shadow: 0 0 20px rgba(142, 115, 65, 0.3); }
+        #inspection-title { color: var(--gold); font-size: 2rem; margin-bottom: 10px; }
+        #inspection-log { color: var(--text-light); font-size: 1.1rem; line-height: 1.6; max-width: 400px; font-style: italic; margin-bottom: 30px; background: rgba(0,0,0,0.4); padding: 15px; border-left: 3px solid var(--gold); }
+        
+        #modal h2 { color: var(--blood-red); font-size: 2.5rem; margin-bottom: 10px; }
+        #modal p { font-size: 1.2rem; margin-bottom: 30px; color: var(--text-light); }
+        .unlock-msg { color: var(--gold); font-size: 1rem; margin-top: 15px; font-style: normal; border-top: 1px dashed var(--gold); padding-top: 15px; }
+
+        @media (max-width: 400px) { .tile { font-size: 1.5rem; } .tab-btn { font-size: 0.7rem; padding: 8px 4px; } }
+    </style>
+<body>
+<!-- AUDIO TOGGLE BUTTON -->
+    <button id="mute-btn" onclick="toggleMute()">🔊</button>
+    <!-- START SCREEN -->
+    <div id="screen-start" class="screen active">
+        <h1 style="margin-top: 15vh;">Lexicon of Secrets</h1>
+        <div class="subtitle">A Melancholic Descent</div>
+        <button class="btn" onclick="showScreen('screen-levels')">Begin Journey</button>
+        <button class="btn" onclick="showScreen('screen-library')">The Library</button>
+    </div>
+
+    <!-- LEVEL SELECT -->
+    <div id="screen-levels" class="screen">
+        <div class="top-bar">
+            <span onclick="showScreen('screen-start')" style="cursor:pointer;">&larr; Back</span>
+            <span>Index</span>
+        </div>
+        <h2 class="chapter-title">Ch I: The Library (1-20)</h2>
+        <div class="level-grid" id="grid-ch1"></div>
+        <h2 class="chapter-title">Ch II: The Pine Forest (21-40)</h2>
+        <div class="level-grid" id="grid-ch2"></div>
+        <h2 class="chapter-title">Ch III: The Dormitories (41-60)</h2>
+        <div class="level-grid" id="grid-ch3"></div>
+    </div>
+
+    <!-- GAME SCREEN -->
+    <div id="screen-game" class="screen">
+        <div class="top-bar">
+            <span onclick="returnToIndex()" style="cursor:pointer;">&larr; Flee</span>
+            <span id="game-level-display">Level 1</span>
+        </div>
+        <div class="game-hud">
+            <div class="hud-item"><span class="hud-label">Moves</span><span class="hud-value" id="hud-moves">20</span></div>
+            <div class="hud-item"><span class="hud-label">Score</span><span class="hud-value" id="hud-score">0</span></div>
+            <div class="hud-item"><span class="hud-label">Goal</span><span class="hud-value" id="hud-target">-</span></div>
+        </div>
+        <div class="objective-text" id="objective-display">Match symbols to proceed.</div>
+
+        <div id="game-board-container">
+            <div id="grid-bg-layer"></div>
+            <div id="tile-layer"></div>
+            <div id="ink-layer"></div>
+        </div>
+    </div>
+
+    <!-- LIBRARY SCREEN -->
+    <div id="screen-library" class="screen">
+        <div class="top-bar">
+            <span onclick="showScreen('screen-start')" style="cursor:pointer;">&larr; Back</span>
+            <span>Silas' Archives</span>
+        </div>
+        
+        <div class="library-tabs">
+            <button class="tab-btn active" onclick="switchLibTab('archive')">The Archive</button>
+            <button class="tab-btn" onclick="switchLibTab('evidence')">The Evidence</button>
+            <button class="tab-btn" onclick="switchLibTab('logs')">Storylogs</button>
+        </div>
+
+        <div id="lib-archive" class="lib-section active"></div>
+        <div id="lib-evidence" class="lib-section"></div>
+        <div id="lib-logs" class="lib-section"></div>
+    </div>
+
+    <!-- INSPECTION MODAL -->
+    <div id="inspection-modal">
+        <div id="inspection-img"></div>
+        <h2 id="inspection-title">Title</h2>
+        <p id="inspection-log">Log text goes here...</p>
+        <button class="btn" onclick="closeInspection()">Close File</button>
+    </div>
+
+    <!-- WIN/LOSS MODAL -->
+    <div id="modal">
+        <h2 id="modal-title">Completed</h2>
+        <p id="modal-desc" style="margin-bottom: 10px;">You have descended deeper.</p>
+        <div id="modal-unlocks" class="unlock-msg"></div>
+        <button class="btn" id="modal-btn-next" style="margin-top:20px;" onclick="nextLevel()">Continue</button>
+        <button class="btn" onclick="returnToIndex()">Return to Index</button>
+    </div>
+
+    <script>
+        /* --- ASSET MANAGEMENT & LORE --- */
+           const BG_MENU = "linear-gradient(rgba(15, 15, 15, 0.85), rgba(15, 15, 15, 0.8)), url('https://images.unsplash.com/photo-1481627834876-b7833e8f5570?auto=format&fit=crop&w=1920&q=80')";
+        const BG_ACT1 = "linear-gradient(rgba(15, 15, 15, 0.7), rgba(15, 15, 15, 0.4)), url('bibliotheek.jpeg')"; // Library
+        const BG_ACT2 = "linear-gradient(rgba(15, 25, 20, 0.7), rgba(10, 15, 10, 0.4)), url('bos.jpeg')"; // Pine Forest
+        const BG_ACT3 = "linear-gradient(rgba(20, 15, 15, 0.7), rgba(10, 5, 5, 0.4)), url('studentenkamer.jpeg')"; // Dormitory
+        
+        
+        const ASSETS = {
+            tiles: {
+                '💍': { color: 'rgba(142, 115, 65, 0.85)', img: 'ring.png' }, 
+                '🌲': { color: 'rgba(26, 58, 42, 0.85)', img: 'dennenappel.png' },  
+                '🍷': { color: 'rgba(74, 4, 4, 0.85)', img: 'wijnglas.png' },    
+                '🗿': { color: 'rgba(200, 190, 175, 0.85)', img: 'buste.png' },
+                '✒️': { color: 'rgba(30, 30, 30, 0.85)',  img: 'vulpen.png' },   // De Vulpen (Normale Token)
+                '🗝️': { color: 'rgba(54, 43, 40, 0.9)', img: 'sleutel.png' }, // Een diepe, houten/gietijzeren achtergrondkleur
+                '👔': { color: 'rgba(40, 50, 70, 0.85)', img: 'sleutel.png' }
+            },
+            
+            archive: [
+                { id: 'alistair', name: 'Alistair', unlockLevel: 4, img: 'Alistair.jpeg', log: "Alistair always had a quote from Ovid for every tragedy. He thought words could shield us from reality." },
+                { id: 'helena', name: 'Helena', unlockLevel: 8, img: 'Helena.jpeg', log: "Helena poured wine like she was pouring poison. Beautiful, untouchable, and ultimately lethal." },
+                { id: 'dorian', name: 'Dorian', unlockLevel: 12, img: 'dorian.jpeg', log: "Dorian couldn't handle the guilt. The forest called to him, a green maze he never escaped." },
+                { id: 'arthur', name: 'Arthur', unlockLevel: 18, img: 'arthur.jpeg', log: "Arthur found out too much. The marble floor of the library was the last thing he saw." },
+               { id: 'cassian', name: 'Cassian',   unlockLevel: 24,  img: 'cassian.jpeg', log: "Cassian was always the ghost among us, lingering under the stone archways. He left before the winter froze our sins, but his silence stayed behind."},
+               { id: 'elias', name: 'Elias Thorne', unlockLevel: 36, img: 'Elias.jpeg', log: "Professor Thorne didn't just teach us classics; he sculpted our arrogance. He sat in his leather chair like a deity, pulling strings we didn't even know were attached to our wrists."},
+               {  id: 'silas',  name: 'Silas', unlockLevel: 48,  img: 'silas.jpeg', log: "I typed every word of our downfall. The observer, the hollow keeper of keys. I survived them all, but when I look at the paper, the ink still looks like a confession." },
+                { id: 'group', name: 'The Gilded Six', unlockLevel: 60, img: 'picknickfoto.jpg', log: "We were gods once. Untouchable academics. Now we are just monsters hiding in the dark." }
+            ],
+            evidence: [
+                { id: 'ring', name: 'Golden Signet', unlockLevel: 3, img:'zegelring.jpeg' ,symbol: '💍', color: '#8e7341', log: "The family crest is scratched. A desperate struggle leaves marks." },
+                { id: 'cufflink', name: 'Bloodied Cufflink', unlockLevel: 6, img:'manchetknoop.jpeg', symbol: '🩸', color: '#4a0404', log: "Found under the mahogany desk. The blood dried dark, like old wine." },
+                { id: 'photo', name: 'Torn Photograph', unlockLevel: 9, img: 'gescheurdefoto.png', symbol: '📸', color: '#2a2a2a', log: "A picture of Arthur, torn right down the middle. Who was he looking at?" }
+            ],
+                        logs: [
+                { id: 'log1', title: 'The Invitation', unlockLevel: 1, log: "I remember the first time Elias looked at me. Not through me, like most professors, but at me. I was invited. For a boy like me, from a town where nothing ever happens, Blackwood Hall wasn't just a college. It was a cathedral of possibilities." },
+                { id: 'log10', title: 'Tragic Heroes', unlockLevel: 10, log: "Alistair speaks Greek as if it were his mother tongue and drinks whiskey as if it were water. We spent the night in the library, tracing the lineage of tragic heroes. We didn't realize we were drafting our own scripts." },
+                { id: 'log20', title: 'The Fall', unlockLevel: 20, log: "The air in the forest was too still. Arthur was laughing—that loud, grating laugh that Alistair hated so much. Then, the laughter stopped. It wasn't an accident. I saw the ring on Elias's hand catch the moonlight as he stepped back. We all stayed in the shadows. We are all authors of this silence now." },
+                { id: 'log25', title: 'The Waiting', unlockLevel: 25, log: "Helena hasn't brushed her hair in days. She stares at the edge of the woods from the library window. We are waiting for the police, for the parents, for God—but only the rain comes. The ink on my fingers feels like blood that won't wash off." },
+                { id: 'log30', title: 'Cracks in the Marble', unlockLevel: 30, log: "Dorian is breaking. He hears Arthur’s voice in the corridors, shouting about debts and secrets. Alistair just cleans his glasses and tells us to read more Iliad. As if Homer has the answers for a shallow grave." },
+                { id: 'log40', title: 'The Knot', unlockLevel: 40, log: "Elias called us to his office. He didn't offer tea this time. He told us that a secret shared is a bond stronger than blood. I looked at the others and realized I didn't love them anymore. I was simply tethered to them. We are a knot that can only be cut." },
+                { id: 'log45', title: 'Fading Away', unlockLevel: 45, log: "Cassian left in the middle of the night. No note, just an empty bed and a smell of stale cigarettes. Helena hasn't spoken his name since. We are losing pieces of ourselves, one by one, like marble statues left out in the frost." },
+                { id: 'log55', title: 'Ghosts of September', unlockLevel: 55, log: "I found a photograph of us from September. We looked so young, so certain of our own immortality. Now, when I look in the mirror, I see a stranger who knows too much about the weight of dirt." },
+                { id: 'log60', title: 'The Game is Over', unlockLevel: 60, log: "Blackwood Hall is closing for the winter. Elias is gone, vanished into the grey academic ether. Alistair and I stood at the gates today. We didn't say goodbye. There is no need for goodbyes when you take the same ghost home with you. The game is over, but the patterns remain." }
+            ]
+        };
+
+        const SYMBOLS = ['💍', '🌲', '🍷', '🗿', '✒️'];
+        const MASTER_KEY = '🗝️';
+        let state = { maxLevel: 1, currentLevel: 1 };
+        const ROWS = 8; const COLS = 8;
+        
+        // Nieuwe centrale datastructuur
+        let grid = []; 
+        let isAnimating = false;
+        let levelData = { moves: 0, score: 0, type: 'score', target: 0, inkLeft: 0, evidenceCount: 0 };
+        let currentEvidence = '';
+
+        class Tile {
+            constructor(r, c, symbol, special = null, isEvidence = false) {
+                this.id = Math.random().toString(36).substr(2, 9);
+                this.r = r; this.c = c; this.symbol = symbol;
+                this.special = special; this.isEvidence = isEvidence; this.el = null; 
+            }
+        }
+/* --- AUDIO ENGINE (SEAMLESS LOOP FIX) --- */
+        const audioState = {
+            bgmContext: null,
+            bgmBuffer: null,
+            bgmSource: null,
+            bgmGain: null,
+            isMuted: localStorage.getItem('lexicon_muted') === 'true'
+        };
+
+        // Deze functie laadt de muziek in het geheugen voor een perfecte, naadloze loop
+        async function initSeamlessBGM() {
+            if (audioState.bgmContext) return; // Zorgt dat dit maar 1x gebeurt
+
+            try {
+                // Maak de audio context aan (browser compatibiliteit)
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                audioState.bgmContext = new AudioContext();
+                
+                // Download het mp3 bestand naar het geheugen
+                const response = await fetch('bgm.mp3'); // Zorg dat dit precies klopt met je bestandsnaam!
+                const arrayBuffer = await response.arrayBuffer();
+                audioState.bgmBuffer = await audioState.bgmContext.decodeAudioData(arrayBuffer);
+                
+                // Maak een volume-knop (GainNode)
+                audioState.bgmGain = audioState.bgmContext.createGain();
+                audioState.bgmGain.gain.value = 0.5; // Volume (0.0 tot 1.0)
+                audioState.bgmGain.connect(audioState.bgmContext.destination);
+
+                // Als het niet gemute is, begin met spelen!
+                if (!audioState.isMuted) {
+                    playSeamlessBGM();
+                }
+            } catch (error) {
+                console.error("Muziek kon niet worden geladen:", error);
+            }
+        }
+
+        function playSeamlessBGM() {
+            if (!audioState.bgmBuffer || audioState.bgmSource) return;
+            
+            // Koppel de buffer aan de speler
+            audioState.bgmSource = audioState.bgmContext.createBufferSource();
+            audioState.bgmSource.buffer = audioState.bgmBuffer;
+            
+            // HIER GEBEURT DE MAGIE: Sample-accurate naadloze loop!
+            audioState.bgmSource.loop = true; 
+            
+            audioState.bgmSource.connect(audioState.bgmGain);
+            audioState.bgmSource.start(0);
+        }
+
+        function stopSeamlessBGM() {
+            if (audioState.bgmSource) {
+                audioState.bgmSource.stop();
+                audioState.bgmSource.disconnect();
+                audioState.bgmSource = null;
+            }
+        }
+
+        function toggleMute() {
+            audioState.isMuted = !audioState.isMuted;
+            localStorage.setItem('lexicon_muted', audioState.isMuted);
+            document.getElementById('mute-btn').innerText = audioState.isMuted ? '🔇' : '🔊';
+            
+            if (audioState.isMuted) {
+                stopSeamlessBGM();
+            } else {
+                // Als de browser de audio op pauze had gezet, haal hem van pauze
+                if (audioState.bgmContext && audioState.bgmContext.state === 'suspended') {
+                    audioState.bgmContext.resume();
+                }
+                playSeamlessBGM();
+            }
+        }
+        
+        // --- SOUND EFFECTS (SFX) ---
+        const sfx = {
+            match: new Audio('match.mp3'),
+            win: new Audio('win.mp3')
+        };
+        
+        // Volume afstellen (zodat het glas niet doofmakend hard is)
+        sfx.match.volume = 0.5; 
+        sfx.win.volume = 0.7;
+
+        function playSound(type) {
+            // Als de game gemute is, speel dan niks af!
+            if (audioState.isMuted) return;
+
+            if (sfx[type]) {
+                // cloneNode() is een trucje: hierdoor kan hetzelfde geluid meerdere keren 
+                // PRECIES tegelijk starten (bijv. als er 3 bommen tegelijk afgaan)
+                let soundClip = sfx[type].cloneNode();
+                soundClip.volume = sfx[type].volume;
+                soundClip.play().catch(e => console.log("SFX kon niet afspelen:", e));
+            }
+        }
+        
+/* --- INITIALIZATION & NAVIGATION --- */
+         function init() {
+            if (localStorage.getItem('lexicon_save')) state = JSON.parse(localStorage.getItem('lexicon_save'));
+            document.body.style.backgroundImage = BG_MENU;
+            
+            // Knop status goedzetten
+            document.getElementById('mute-btn').innerText = audioState.isMuted ? '🔇' : '🔊';
+            
+            // Start the naadloze loop op de allereerste klik van de speler ergens op het scherm
+            document.body.addEventListener('click', initSeamlessBGM, { once: true });
+            document.body.addEventListener('touchstart', initSeamlessBGM, { once: true });
+            
+            generateLevelSelect();
+            setupInput(); 
+        }
+        
+        function saveGame() { localStorage.setItem('lexicon_save', JSON.stringify(state)); }
+
+        function showScreen(screenId) {
+            document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+            document.getElementById(screenId).classList.add('active');
+            if (screenId === 'screen-levels') generateLevelSelect();
+            if (screenId === 'screen-library') renderLibrary();
+        }
+
+        function showModal(title, desc, isWin) {
+            document.getElementById('modal-title').innerText = title;
+            document.getElementById('modal-title').style.color = isWin ? 'var(--gold)' : 'var(--blood-red)';
+            document.getElementById('modal-desc').innerText = desc;
+            
+            // Unlock Notification Logic
+            let unlocksHtml = '';
+            if (isWin) {
+                let uArch = ASSETS.archive.find(a => a.unlockLevel === state.currentLevel);
+                let uEvid = ASSETS.evidence.find(e => e.unlockLevel === state.currentLevel);
+                let uLog = ASSETS.logs.find(l => l.unlockLevel === state.currentLevel);
+
+                if(uArch || uEvid || uLog) unlocksHtml += '<strong>New Discoveries:</strong><br>';
+                if(uArch) unlocksHtml += `🖼️ Portrait: ${uArch.name}<br>`;
+                if(uEvid) unlocksHtml += `🔍 Evidence: ${uEvid.name}<br>`;
+                if(uLog) unlocksHtml += `📜 Storylog: ${uLog.title}<br>`;
+            }
+            document.getElementById('modal-unlocks').innerHTML = unlocksHtml;
+
+            document.getElementById('modal-btn-next').style.display = isWin ? 'block' : 'none';
+            document.getElementById('modal').style.display = 'flex';
+        }
+        function hideModal() { document.getElementById('modal').style.display = 'none'; }
+        
+        function returnToIndex() {
+            document.body.style.backgroundImage = BG_MENU;
+            hideModal(); isAnimating = false; levelData.moves = 0;
+            showScreen('screen-levels');
+        }
+
+        /* --- LEVEL GENERATOR --- */
+        function generateLevelSelect() {
+            ['ch1', 'ch2', 'ch3'].forEach(id => document.getElementById(`grid-${id}`).innerHTML = '');
+            for (let i = 1; i <= 60; i++) {
+                let btn = document.createElement('button');
+                btn.className = 'level-btn'; btn.innerText = i;
+                if (i > state.maxLevel) btn.disabled = true;
+                else btn.onclick = () => startGame(i);
+                document.getElementById(i <= 20 ? 'grid-ch1' : (i <= 40 ? 'grid-ch2' : 'grid-ch3')).appendChild(btn);
+            }
+        }
+
+        function startGame(level) {
+            state.currentLevel = level;
+            
+                        // Dynamic Backgrounds based on Chapter
+            if (level <= 20) document.body.style.backgroundImage = BG_ACT1;
+            else if (level <= 40) document.body.style.backgroundImage = BG_ACT2;
+            else document.body.style.backgroundImage = BG_ACT3;
+
+
+            let typeId = level % 3;
+            levelData.type = typeId === 1 ? 'score' : (typeId === 2 ? 'ink' : 'descent');
+            levelData.moves = 20 + Math.floor(level / 5);
+            levelData.score = 0;
+            
+            let evItem = ASSETS.evidence.find(e => e.unlockLevel >= level);
+            currentEvidence = evItem ? evItem.symbol : '👔';
+
+            let objText = "";
+            if (levelData.type === 'score') {
+                levelData.target = 1000 + (level * 200);
+                objText = `Academic Merit: Reach ${levelData.target} points.`;
+            } else if (levelData.type === 'ink') {
+                levelData.target = Math.min(20, 5 + Math.floor(level / 2));
+                objText = `Clear the Ink Stains.`;
+            } else {
+                levelData.evidenceCount = 1;
+                levelData.target = 1;
+                objText = `The Descent: Bring the evidence to the bottom.`;
+            }
+
+            // LEVEL 2 OVERRIDE (Ink Tutorial)
+            if (level === 2) {
+                levelData.type = 'ink';
+                levelData.target = 6;
+                objText = "First Blood: Clear the Ink Stains.";
+            }
+
+            document.getElementById('game-level-display').innerText = `Level ${level}`;
+            document.getElementById('objective-display').innerText = objText;
+            
+            createBoard();
+            updateHUD();
+            showScreen('screen-game');
+        }
+
+        /* --- MATCH-3 ENGINE --- */
+        function createBoard() {
+            const tileLayer = document.getElementById('tile-layer');
+            const bgLayer = document.getElementById('grid-bg-layer');
+            const inkLayer = document.getElementById('ink-layer');
+            tileLayer.innerHTML = ''; bgLayer.innerHTML = ''; inkLayer.innerHTML = '';
+            
+            grid = []; levelData.inkLeft = 0; isAnimating = false;
+
+            // Bouw de datastructuur en DOM in één keer op
+            for (let r = 0; r < ROWS; r++) {
+                let row = [];
+                for (let c = 0; c < COLS; c++) {
+                    let symbol;
+                    do { symbol = SYMBOLS[Math.floor(Math.random() * SYMBOLS.length)]; } 
+                    while ((c >= 2 && row[c-1].tile && row[c-1].tile.symbol === symbol && row[c-2].tile && row[c-2].tile.symbol === symbol) ||
+                           (r >= 2 && grid[r-1][c].tile && grid[r-1][c].tile.symbol === symbol && grid[r-2][c].tile && grid[r-2][c].tile.symbol === symbol));
+                    
+                    row.push({
+                        hasInk: false,
+                        tile: new Tile(r, c, symbol)
+                    });
+
+                    // Background Cell
+                    let bgCell = document.createElement('div');
+                    bgCell.className = 'grid-cell';
+                    bgLayer.appendChild(bgCell);
+
+                    // Ink Overlay Cell (Zit in aparte laag)
+                    let inkCell = document.createElement('div');
+                    inkCell.className = 'grid-cell';
+                    inkCell.style.border = 'none'; // Voorkom dubbele borders
+                    let inkOverlay = document.createElement('div');
+                    inkOverlay.className = 'ink-overlay';
+                    inkOverlay.id = `ink-${r}-${c}`;
+                    inkCell.appendChild(inkOverlay);
+                    inkLayer.appendChild(inkCell);
+                }
+                grid.push(row);
+            }
+
+            // LEVEL 2 FORCE INK
+            if (state.currentLevel === 2) {
+                const forcedInk = [[3,3],[3,4],[4,3],[4,4],[2,3],[5,4]];
+                forcedInk.forEach(([r,c]) => {
+                    grid[r][c].hasInk = true;
+                    levelData.inkLeft++;
+                    document.getElementById(`ink-${r}-${c}`).classList.add('active');
+                });
+            } else if(levelData.type === 'ink') {
+                while(levelData.inkLeft < levelData.target) {
+                    let r = Math.floor(Math.random()*(ROWS-2))+2; let c = Math.floor(Math.random()*COLS);
+                    if(!grid[r][c].hasInk) { 
+                        grid[r][c].hasInk = true; levelData.inkLeft++; 
+                        document.getElementById(`ink-${r}-${c}`).classList.add('active');
+                    }
+                }
+            }
+
+            // Force Evidence Spawn op Rij 0
+            if (levelData.type === 'descent') {
+                let startCol = Math.floor(Math.random() * COLS);
+                grid[0][startCol].tile = new Tile(0, startCol, currentEvidence, null, true);
+            }
+
+            drawBoard(true);
+        }
+
+        function drawBoard(initial = false) {
+    const tileLayer = document.getElementById('tile-layer');
+
+    for (let r = 0; r < ROWS; r++) {
+        for (let c = 0; c < COLS; c++) {
+            let tile = grid[r][c].tile;
+            if (tile) {
+                if (!tile.el) {
+                    let el = document.createElement('div');
+                    el.className = 'tile';
+                    el.id = tile.id;
+                    
+                    // --- OPGELOST: AFBEELDING OF EMOJI LOGICA ---
+                    let tileAsset = null;
+                    
+                    // 1. Check of deze tile het Bewijsstuk (Evidence) is
+                    if (tile.isEvidence) {
+                        // Zoek de eigenschappen op in de Evidence lijst
+                        tileAsset = ASSETS.evidence.find(e => e.symbol === tile.symbol);
+                    }
+                    
+                    // 2. Als het geen evidence is (of als de evidence fallback nodig heeft), zoek in normale tiles
+                    if (!tileAsset) {
+                        tileAsset = ASSETS.tiles[tile.symbol];
+                    }
+
+                    // 3. Render de afbeelding
+                    if (tileAsset && tileAsset.img) {
+                        // Er is een plaatje gevonden in ASSETS!
+                        el.innerHTML = `<img src="${tileAsset.img}" style="width: 85%; height: 85%; object-fit: contain; pointer-events: none;">`;
+                        el.style.backgroundColor = tileAsset.color;
+                    } else {
+                        // Geen plaatje? Dan valt hij netjes terug op de emoji text
+                        el.innerText = tile.symbol;
+                        if (tileAsset) el.style.backgroundColor = tileAsset.color;
+                        else el.style.backgroundColor = 'rgba(100,100,100,0.8)'; // Standaard grijs als niks gevonden is
+                    }
+                    // ----------------------------------
+
+                    if (tile.isEvidence) el.classList.add('evidence-tile');
+                    tileLayer.appendChild(el);
+                    tile.el = el;
+                    
+                    if(!initial) {
+                        tile.el.style.top = `${(r - ROWS) * 12.5}%`;
+                        tile.el.style.left = `${c * 12.5}%`;
+                        void tile.el.offsetWidth; // reflow
+                    }
+                }
+                tile.el.style.top = `${r * 12.5}%`;
+                tile.el.style.left = `${c * 12.5}%`;
+                
+                // Reset de basis-klasses en voeg specials toe indien nodig
+                tile.el.className = 'tile'; 
+                if (tile.isEvidence) tile.el.classList.add('evidence-tile');
+                if (tile.special === 'row') tile.el.classList.add('special-row');
+                if (tile.special === 'col') tile.el.classList.add('special-col');
+                if (tile.special === 'bomb') tile.el.classList.add('special-bomb');
+                if (tile.special === 'color') tile.el.classList.add('special-color');
+            }
+        }
+    }
+}
+
+        function updateHUD() {
+            document.getElementById('hud-moves').innerText = levelData.moves;
+            document.getElementById('hud-score').innerText = levelData.score;
+            if(levelData.type === 'score') document.getElementById('hud-target').innerText = levelData.target;
+            else if(levelData.type === 'ink') document.getElementById('hud-target').innerText = levelData.inkLeft;
+            else document.getElementById('hud-target').innerText = levelData.evidenceCount;
+        }
+
+        /* --- INPUT SWIPE --- */
+        let startX, startY, startR, startC, inputSetupDone = false;
+        
+        function setupInput() {
+            if (inputSetupDone) return;
+            const container = document.getElementById('game-board-container');
+
+            function handleStart(e) {
+                if(isAnimating || levelData.moves <= 0) return;
+                if (e.type === 'touchstart') e.preventDefault();
+                let rect = container.getBoundingClientRect();
+                let clientX = e.type === 'touchstart' ? e.touches[0].clientX : e.clientX;
+                let clientY = e.type === 'touchstart' ? e.touches[0].clientY : e.clientY;
+                startC = Math.floor((clientX - rect.left) / (rect.width / COLS));
+                startR = Math.floor((clientY - rect.top) / (rect.height / ROWS));
+                startX = clientX; startY = clientY;
+            }
+
+            function handleEnd(e) {
+                if(isAnimating || startR === undefined || levelData.moves <= 0) return;
+                if (e.type === 'touchend') e.preventDefault();
+                let clientX = e.type === 'touchend' ? e.changedTouches[0].clientX : e.clientX;
+                let clientY = e.type === 'touchend' ? e.changedTouches[0].clientY : e.clientY;
+                let dx = clientX - startX; let dy = clientY - startY;
+                
+                if (Math.max(Math.abs(dx), Math.abs(dy)) > 20) {
+                    let targetR = startR; let targetC = startC;
+                    if (Math.abs(dx) > Math.abs(dy)) targetC += (dx > 0) ? 1 : -1;
+                    else targetR += (dy > 0) ? 1 : -1;
+                    
+                    if (targetR >= 0 && targetR < ROWS && targetC >= 0 && targetC < COLS) {
+                        handleSwap(startR, startC, targetR, targetC);
+                    }
+                }
+                startR = undefined;
+            }
+
+            container.addEventListener('touchstart', handleStart, { passive: false });
+            container.addEventListener('touchend', handleEnd, { passive: false });
+            container.addEventListener('mousedown', handleStart);
+            container.addEventListener('mouseup', handleEnd);
+            inputSetupDone = true;
+        }
+
+        async function handleSwap(r1, c1, r2, c2) {
+            isAnimating = true;
+            let t1 = grid[r1][c1].tile; let t2 = grid[r2][c2].tile;
+            
+            // Swap in de array
+            grid[r1][c1].tile = t2; if(t2) { t2.r = r1; t2.c = c1; }
+            grid[r2][c2].tile = t1; if(t1) { t1.r = r2; t1.c = c2; }
+            
+            drawBoard(); await sleep(300);
+
+            // --- NIEUW: COMBINATIE VAN TWEE SPECIALS ---
+            if (t1 && t2 && t1.special && t2.special && !t1.isEvidence && !t2.isEvidence) {
+                levelData.moves--; updateHUD();
+                await executeCombo(t1, t2, r2, c2); 
+                return;
+            }
+
+            // --- BESTAANDE KLEUR BOM LOGICA (Kleur + Normaal symbool) ---
+            if (t1 && t1.special === 'color' && t2 && !t2.isEvidence && !t2.special) {
+                levelData.moves--; updateHUD(); await clearColor(t2.symbol, r2, c2, r1, c1); return;
+            }
+            if (t2 && t2.special === 'color' && t1 && !t1.isEvidence && !t1.special) {
+                levelData.moves--; updateHUD(); await clearColor(t1.symbol, r1, c1, r2, c2); return;
+            }
+
+            // --- STANDAARD MATCH LOGICA ---
+            let matchesInfo = findMatches();
+            if (matchesInfo.matchedTiles.size === 0) {
+                // Swap terug als er niks gebeurt
+                grid[r1][c1].tile = t1; if(t1) { t1.r = r1; t1.c = c1; }
+                grid[r2][c2].tile = t2; if(t2) { t2.r = r2; t2.c = c2; }
+                drawBoard();
+                isAnimating = false;
+            } else {
+                levelData.moves--; updateHUD();
+                matchesInfo.specialsSpawn.forEach(sp => {
+                    if ((sp.r === r1 && sp.c === c1) || (sp.r === r2 && sp.c === c2)) {} 
+                    else if (matchesInfo.matchedTiles.has(`${r2},${c2}`)) { sp.r = r2; sp.c = c2; } 
+                    else if (matchesInfo.matchedTiles.has(`${r1},${c1}`)) { sp.r = r1; sp.c = c1; }
+                });
+                await processMatches(matchesInfo);
+            }
+        }
+
+        function findMatches() {
+            let hMatches = []; let vMatches = [];
+            for (let r = 0; r < ROWS; r++) {
+                let matchLen = 1;
+                for (let c = 0; c < COLS; c++) {
+                    let cur = grid[r][c].tile; let nxt = (c < COLS - 1) ? grid[r][c+1].tile : null;
+                    if (cur && nxt && cur.symbol === nxt.symbol && cur.symbol !== MASTER_KEY && !cur.isEvidence) matchLen++;
+                    else {
+                        if (matchLen >= 3) {
+                            let g = []; for(let i=0; i<matchLen; i++) g.push({r, c: c - matchLen + 1 + i});
+                            hMatches.push(g);
+                        }
+                        matchLen = 1;
+                    }
+                }
+            }
+            for (let c = 0; c < COLS; c++) {
+                let matchLen = 1;
+                for (let r = 0; r < ROWS; r++) {
+                    let cur = grid[r][c].tile; let nxt = (r < ROWS - 1) ? grid[r+1][c].tile : null;
+                    if (cur && nxt && cur.symbol === nxt.symbol && cur.symbol !== MASTER_KEY && !cur.isEvidence) matchLen++;
+                    else {
+                        if (matchLen >= 3) {
+                            let g = []; for(let i=0; i<matchLen; i++) g.push({r: r - matchLen + 1 + i, c});
+                            vMatches.push(g);
+                        }
+                        matchLen = 1;
+                    }
+                }
+            }
+
+            let matchedTiles = new Set(); let specialsSpawn = []; 
+            let hSet = new Set(hMatches.flat().map(t => `${t.r},${t.c}`));
+            let vSet = new Set(vMatches.flat().map(t => `${t.r},${t.c}`));
+            let intersections = [...hSet].filter(x => vSet.has(x));
+
+            hMatches.forEach(g => {
+                if (g.length >= 5) specialsSpawn.push({ r: g[2].r, c: g[2].c, type: 'color', symbol: MASTER_KEY });
+                else if (g.length === 4) specialsSpawn.push({ r: g[1].r, c: g[1].c, type: 'col', symbol: grid[g[1].r][g[1].c].tile.symbol }); 
+            });
+            vMatches.forEach(g => {
+                if (g.length >= 5 && !specialsSpawn.some(s => s.type === 'color')) specialsSpawn.push({ r: g[2].r, c: g[2].c, type: 'color', symbol: MASTER_KEY });
+                else if (g.length === 4) specialsSpawn.push({ r: g[1].r, c: g[1].c, type: 'row', symbol: grid[g[1].r][g[1].c].tile.symbol });
+            });
+
+            intersections.forEach(inter => {
+                let [r, c] = inter.split(',').map(Number);
+                specialsSpawn = specialsSpawn.filter(s => s.r !== r || s.c !== c);
+                specialsSpawn.push({ r, c, type: 'bomb', symbol: grid[r][c].tile.symbol });
+            });
+
+            [...hMatches, ...vMatches].forEach(g => g.forEach(t => matchedTiles.add(`${t.r},${t.c}`)));
+            specialsSpawn.forEach(sp => matchedTiles.delete(`${sp.r},${sp.c}`));
+
+            return { matchedTiles, specialsSpawn };
+        }
+
+async function executeCombo(t1, t2, targetR, targetC) {
+            let toClear = new Set();
+            toClear.add(`${t1.r},${t1.c}`);
+            toClear.add(`${t2.r},${t2.c}`);
+
+            let s1 = t1.special;
+            let s2 = t2.special;
+
+            // 1. Kleur + Kleur = Wis alles!
+            if (s1 === 'color' && s2 === 'color') {
+                for(let r=0; r<ROWS; r++) {
+                    for(let c=0; c<COLS; c++) {
+                        if (grid[r][c].tile && !grid[r][c].tile.isEvidence) toClear.add(`${r},${c}`);
+                    }
+                }
+            }
+            // 2. Kleur + Bom/Lijn = Alle symbolen van die kleur worden bommen/lijnen en ontploffen
+            else if (s1 === 'color' || s2 === 'color') {
+                let colorTile = s1 === 'color' ? t1 : t2;
+                let otherTile = s1 === 'color' ? t2 : t1;
+                let targetSymbol = otherTile.symbol;
+
+                for(let r=0; r<ROWS; r++) {
+                    for(let c=0; c<COLS; c++) {
+                        let cur = grid[r][c].tile;
+                        if (cur && cur.symbol === targetSymbol && !cur.isEvidence) {
+                            toClear.add(`${r},${c}`);
+                            // Voeg de kracht van de andere special toe aan dit vakje
+                            if (otherTile.special === 'row' || otherTile.special === 'col') {
+                                for(let i=0; i<COLS; i++) toClear.add(`${r},${i}`); // Rij
+                                for(let i=0; i<ROWS; i++) toClear.add(`${i},${c}`); // Kolom
+                            } else if (otherTile.special === 'bomb') {
+                                for(let i=-1; i<=1; i++) for(let j=-1; j<=1; j++) {
+                                    let nr = r+i; let nc = c+j;
+                                    if(nr>=0 && nr<ROWS && nc>=0 && nc<COLS) toClear.add(`${nr},${nc}`);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            // 3. Bom + Bom = Grote 5x5 Explosie
+            else if (s1 === 'bomb' && s2 === 'bomb') {
+                for(let i=-2; i<=2; i++) {
+                    for(let j=-2; j<=2; j++) { 
+                        let nr = targetR+i; let nc = targetC+j;
+                        if(nr>=0 && nr<ROWS && nc>=0 && nc<COLS) toClear.add(`${nr},${nc}`);
+                    }
+                }
+            }
+            // 4. Bom + Lijn = Dik Kruis (3 Rijen en 3 Kolommen)
+            else if ((s1 === 'bomb' && (s2 === 'row' || s2 === 'col')) || (s2 === 'bomb' && (s1 === 'row' || s1 === 'col'))) {
+                for(let i=-1; i<=1; i++) {
+                    let nr = targetR+i;
+                    if(nr>=0 && nr<ROWS) for(let c=0; c<COLS; c++) toClear.add(`${nr},${c}`); 
+                    let nc = targetC+i;
+                    if(nc>=0 && nc<COLS) for(let r=0; r<ROWS; r++) toClear.add(`${r},${nc}`); 
+                }
+            }
+            // 5. Lijn + Lijn = Normaal kruis (1 Rij + 1 Kolom)
+            else {
+                for(let i=0; i<COLS; i++) toClear.add(`${targetR},${i}`); 
+                for(let i=0; i<ROWS; i++) toClear.add(`${i},${targetC}`); 
+            }
+
+            // Kettingreactie afhandelen: Als de combo andere specials raakt, gaan die ook af!
+            let processed = new Set();
+            let queue = [...toClear];
+            while(queue.length > 0) {
+                let key = queue.pop(); if (processed.has(key)) continue;
+                processed.add(key); toClear.add(key);
+                let [r, c] = key.split(',').map(Number); let tile = grid[r][c].tile;
+                if (!tile) continue;
+
+                // Voorkom dubbele loops op de combo-tegels zelf
+                if ((r===t1.r && c===t1.c) || (r===t2.r && c===t2.c)) continue;
+
+                if (tile.special === 'row') for(let i=0; i<COLS; i++) { if(!processed.has(`${r},${i}`)) queue.push(`${r},${i}`); }
+                else if (tile.special === 'col') for(let i=0; i<ROWS; i++) { if(!processed.has(`${i},${c}`)) queue.push(`${i},${c}`); }
+                else if (tile.special === 'bomb') {
+                    for(let i=-1; i<=1; i++) for(let j=-1; j<=1; j++) {
+                        let nr = r+i; let nc = c+j;
+                        if(nr>=0 && nr<ROWS && nc>=0 && nc<COLS && !processed.has(`${nr},${nc}`)) queue.push(`${nr},${nc}`);
+                    }
+                }
+            }
+
+            // Stuur het gigantische vlak dat vernietigd moet worden naar de vernietigings-engine
+            await destroyTiles(toClear, []);
+        }
+        // De nieuwe logica voor inkt: Dit handelt de eigenschap van de CEL af.
+        function clearInk(r, c) {
+            if (r >= 0 && r < ROWS && c >= 0 && c < COLS && grid[r][c].hasInk) {
+                grid[r][c].hasInk = false; 
+                levelData.inkLeft--;
+                let inkOverlay = document.getElementById(`ink-${r}-${c}`);
+                if (inkOverlay) {
+                    inkOverlay.classList.remove('active'); 
+                }
+            }
+        }
+
+async function clearColor(sym, bombR, bombC, targetR, targetC) {
+            let toClear = new Set();
+            
+            // FIX: Voeg de kleurenbom zélf toe aan de vernietigingslijst
+            toClear.add(`${bombR},${bombC}`);
+            
+            // FIX: Voeg het specifieke symbool waarmee geswapt is toe
+            toClear.add(`${targetR},${targetC}`);
+            
+            // Zoek alle andere symbolen van dit type op het hele bord
+            for(let r = 0; r < ROWS; r++) {
+                for(let c = 0; c < COLS; c++) {
+                    if(grid[r][c].tile && grid[r][c].tile.symbol === sym && !grid[r][c].tile.isEvidence) {
+                        toClear.add(`${r},${c}`);
+                    }
+                }
+            }
+            
+            // Stuur de complete lijst naar de bestaande destroyTiles functie
+            await destroyTiles(toClear, []);
+        }
+
+        async function processMatches(mInfo) {
+            let toClear = new Set(mInfo.matchedTiles); let processed = new Set(); let queue = [...toClear];
+            while(queue.length > 0) {
+                let key = queue.pop(); if (processed.has(key)) continue;
+                processed.add(key); toClear.add(key);
+                let [r, c] = key.split(',').map(Number); let tile = grid[r][c].tile;
+                if (!tile) continue;
+
+                if (tile.special === 'row') for(let i=0; i<COLS; i++) { if(!processed.has(`${r},${i}`)) queue.push(`${r},${i}`); }
+                else if (tile.special === 'col') for(let i=0; i<ROWS; i++) { if(!processed.has(`${i},${c}`)) queue.push(`${i},${c}`); }
+                else if (tile.special === 'bomb') {
+                    for(let i=-1; i<=1; i++) for(let j=-1; j<=1; j++) {
+                        let nr = r+i; let nc = c+j;
+                        if(nr>=0 && nr<ROWS && nc>=0 && nc<COLS && !processed.has(`${nr},${nc}`)) queue.push(`${nr},${nc}`);
+                    }
+                }
+            }
+            await destroyTiles(toClear, mInfo.specialsSpawn);
+        }
+
+        async function destroyTiles(toClearSet, specialsSpawn) {
+          if (toClearSet.size > 0) playSound('match'); // Speel glasgerinkel af!
+            toClearSet.forEach(key => {
+                let [r, c] = key.split(',').map(Number);
+                let tile = grid[r][c].tile;
+                
+                // Inkt weghalen (lokaal en omliggend)
+                clearInk(r, c); clearInk(r - 1, c); clearInk(r + 1, c); clearInk(r, c - 1); clearInk(r, c + 1);
+
+                if(tile && !tile.isEvidence) {
+                    // --- NIEUW SCORE SYSTEEM ---
+                    let points = 50; // Basiswaarde verhoogd van 10 naar 50
+                    
+                    // Bonus als deze steen een power-up was die mee ontploft
+                    if (tile.special) {
+                        points += 200; 
+                    }
+                    
+                    levelData.score += points; 
+                    tile.el.classList.add('ink-bleed');
+                } else {
+                    toClearSet.delete(key);
+                }
+            });
+
+            // --- COMBO BONUS LOGICA ---
+            // Als je in één keer een hoop stenen wist (bijv met een Color Bomb of Grote Combo) krijg je extra bonuspunten!
+            if (toClearSet.size > 5) {
+                // Voor elke steen in de grote kettingreactie krijg je nog eens 20 punten extra
+                let comboBonus = toClearSet.size * 20;
+                levelData.score += comboBonus;
+            }
+
+            updateHUD(); await sleep(400);
+
+            toClearSet.forEach(key => {
+                let [r, c] = key.split(',').map(Number); let tile = grid[r][c].tile;
+                if(tile && tile.el.parentNode) tile.el.parentNode.removeChild(tile.el);
+                grid[r][c].tile = null;
+            });
+
+            specialsSpawn.forEach(sp => {
+                let tile = grid[sp.r][sp.c].tile;
+                if(!tile) grid[sp.r][sp.c].tile = new Tile(sp.r, sp.c, sp.symbol, sp.type);
+                else { tile.special = sp.type; tile.symbol = sp.symbol; }
+            });
+
+            await applyGravity();
+        }
+
+        // Zwaartekracht trekt alleen de .tile naar beneden, .hasInk blijft staan!
+        async function applyGravity() {
+            let moved = false;
+            let evidenceOnBoard = false;
+            
+            if (levelData.type === 'descent') {
+                for (let r = 0; r < ROWS; r++) {
+                    for (let c = 0; c < COLS; c++) {
+                        if (grid[r][c].tile && grid[r][c].tile.isEvidence) evidenceOnBoard = true;
+                    }
+                }
+            }
+
+            for (let c = 0; c < COLS; c++) {
+                // Trekken
+                for (let r = ROWS - 1; r >= 0; r--) {
+                    if (grid[r][c].tile === null) {
+                        for (let k = r - 1; k >= 0; k--) {
+                            if (grid[k][c].tile !== null) {
+                                grid[r][c].tile = grid[k][c].tile; 
+                                grid[k][c].tile = null;
+                                grid[r][c].tile.r = r; 
+                                moved = true; break;
+                            }
+                        }
+                    }
+                }
+                // Aanvullen
+                for (let r = 0; r < ROWS; r++) {
+                    if (grid[r][c].tile === null) {
+                        if (levelData.type === 'descent' && levelData.evidenceCount > 0 && !evidenceOnBoard && r === 0) {
+                            grid[r][c].tile = new Tile(r, c, currentEvidence, null, true);
+                            evidenceOnBoard = true;
+                        } else {
+                            grid[r][c].tile = new Tile(r, c, SYMBOLS[Math.floor(Math.random() * SYMBOLS.length)]);
+                        }
+                        moved = true;
+                    }
+                }
+            }
+            drawBoard(); await sleep(moved ? 400 : 100);
+
+            let evidenceCollected = false;
+            if (levelData.type === 'descent') {
+                for (let c = 0; c < COLS; c++) {
+                    let bottomTile = grid[ROWS - 1][c].tile;
+                    if (bottomTile && bottomTile.isEvidence) {
+                        bottomTile.el.classList.add('ink-bleed');
+                        evidenceCollected = true;
+                        levelData.evidenceCount--;
+                        
+                        setTimeout(() => { 
+                            if (bottomTile.el.parentNode) bottomTile.el.parentNode.removeChild(bottomTile.el); 
+                        }, 400);
+                        grid[ROWS - 1][c].tile = null; 
+                    }
+                }
+            }
+
+            if (evidenceCollected) {
+                await sleep(400);
+                updateHUD();
+                await applyGravity(); 
+                return;
+            }
+
+            let newMatches = findMatches();
+            if (newMatches.matchedTiles.size > 0) await processMatches(newMatches);
+            else checkWinCondition();
+        }
+
+        function checkWinCondition() {
+            let won = false;
+            if (levelData.type === 'score' && levelData.score >= levelData.target) won = true;
+            if (levelData.type === 'descent' && levelData.evidenceCount <= 0) won = true;
+            if (levelData.type === 'ink' && levelData.inkLeft <= 0) won = true;
+
+                if (won) {
+                playSound('win'); // Speel overwinningsgeluid af!
+                isAnimating = true;
+
+                if (state.currentLevel === state.maxLevel && state.maxLevel < 60) {
+                    state.maxLevel++; saveGame();
+                }
+                showModal(`Level ${state.currentLevel} Cleared`, "The memory crystallizes...", true);
+            } else if (levelData.moves <= 0) {
+                isAnimating = true;
+                showModal("Descent Failed", "The memory remains out of reach... The ink consumes all.", false);
+            } else isAnimating = false; 
+        }
+
+        function nextLevel() {
+            hideModal();
+            if (state.currentLevel < 60) startGame(state.currentLevel + 1);
+            else showModal("The End", "The descent is complete.", true);
+        }
+
+        /* --- LIBRARY & INSPECTION --- */
+        function switchLibTab(tab) {
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.lib-section').forEach(s => s.classList.remove('active'));
+            event.target.classList.add('active');
+            document.getElementById(`lib-${tab}`).classList.add('active');
+        }
+
+        function renderLibrary() {
+            const archCont = document.getElementById('lib-archive');
+            const evCont = document.getElementById('lib-evidence');
+            const logCont = document.getElementById('lib-logs');
+            archCont.innerHTML = ''; evCont.innerHTML = ''; logCont.innerHTML = '';
+
+            // --- ARCHIVE ---
+            ASSETS.archive.forEach(item => {
+                let div = document.createElement('div');
+                if (state.maxLevel >= item.unlockLevel) {
+                    div.className = 'lib-item'; 
+                    div.style.backgroundImage = `url('${item.img}')`;
+                    if(item.id === 'group' && state.maxLevel > 60) div.style.filter = 'grayscale(100%)';
+                    div.innerHTML = `<div class="lib-item-name">${item.name}</div>`;
+                    div.onclick = () => showInspection(item, 'archive');
+                } else {
+                    div.className = 'lib-item locked-item';
+                    div.innerHTML = `<div class="question-mark">?</div><div class="locked-text">Locked</div>`;
+                }
+                archCont.appendChild(div);
+            });
+
+            // --- EVIDENCE OVERZICHT (Geïntegreerde logica) ---
+            ASSETS.evidence.forEach(item => {
+                let div = document.createElement('div');
+                if (state.maxLevel >= item.unlockLevel) {
+                    div.className = 'lib-item';
+                    div.style.backgroundColor = item.color;
+                    div.style.backgroundImage = `url('https://www.transparenttextures.com/patterns/aged-paper.png')`;
+                    div.style.backgroundBlendMode = 'multiply';
+                    
+                    if (item.img) {
+                        // FIX: flex: 1 zorgt dat het plaatje alle beschikbare ruimte in het hokje pakt boven de titel
+                        div.innerHTML = `
+                            <div style="flex: 1; width: 100%; display: flex; align-items: center; justify-content: center; padding: 10px;">
+                                <img src="${item.img}" style="max-width: 100%; max-height: 100%; object-fit: contain; pointer-events: none; filter: drop-shadow(0px 4px 6px rgba(0,0,0,0.6));">
+                            </div>
+                            <div class="lib-item-name">${item.name}</div>
+                        `;
+                    } else {
+                        // De oude fallback
+                        div.innerHTML = `<div style="font-size:3rem; margin-bottom:10px;">${item.symbol}</div><div class="lib-item-name">${item.name}</div>`;
+                    }
+                    div.onclick = () => showInspection(item, 'evidence');
+                } else {
+                    div.className = 'lib-item locked-item';
+                    div.innerHTML = `<div class="question-mark">?</div><div class="locked-text">Locked</div>`;
+                }
+                evCont.appendChild(div);
+            });
+
+            // --- STORYLOGS ---
+            ASSETS.logs.forEach(item => {
+                let div = document.createElement('div');
+                if (state.maxLevel >= item.unlockLevel) {
+                    div.className = 'log-item';
+                    div.innerHTML = `<h3>${item.title}</h3>`;
+                    div.onclick = () => showInspection(item, 'log');
+                } else {
+                    div.className = 'log-item locked-item';
+                    div.style.padding = '15px'; div.style.display = 'block'; div.style.textAlign = 'center';
+                    div.innerHTML = `<div style="font-style:italic;">Sealed Memory (Level ${item.unlockLevel})</div>`;
+                }
+                logCont.appendChild(div);
+            });
+        }
+
+        // --- POP-UP / MODAL INSPECTIE ---
+        function showInspection(item, type) {
+            const modal = document.getElementById('inspection-modal');
+            const img = document.getElementById('inspection-img');
+            const title = document.getElementById('inspection-title');
+            const log = document.getElementById('inspection-log');
+            
+            img.style.display = 'block';
+            img.style.filter = 'none';
+
+            if (type === 'evidence') {
+                if (item.img) {
+                    img.style.backgroundImage = `url('${item.img}')`;
+                    img.style.backgroundColor = 'transparent';
+                    img.style.backgroundSize = 'cover';
+                    img.style.backgroundPosition = 'center';
+                    img.innerHTML = ''; 
+                } else {
+                    img.style.backgroundImage = `url('https://www.transparenttextures.com/patterns/aged-paper.png')`;
+                    img.style.backgroundColor = item.color;
+                    img.style.backgroundSize = 'auto'; 
+                    img.innerHTML = `<div style="font-size:6rem; display:flex; height:100%; align-items:center; justify-content:center; text-shadow: 2px 2px 5px black;">${item.symbol}</div>`;
+                }
+                title.innerText = item.name;
+                log.innerText = `"${item.log}" - Silas`;
+            } else if (type === 'archive') {
+                img.style.backgroundImage = `url('${item.img}')`;
+                img.style.backgroundColor = 'transparent';
+                img.style.backgroundSize = 'cover';
+                img.style.backgroundPosition = 'center';
+                img.innerHTML = ''; 
+                if(item.id === 'group' && state.maxLevel > 60) {
+                    img.style.filter = 'grayscale(100%)';
+                }
+                title.innerText = item.name;
+                log.innerText = `"${item.log}" - Silas`;
+            } else if (type === 'log') {
+                img.style.display = 'none'; 
+                title.innerText = item.title;
+                log.innerText = item.log;
+                log.style.fontFamily = "'Courier Prime', monospace";
+            }
+
+            if (type !== 'log') log.style.fontFamily = "'EB Garamond', serif";
+            modal.style.display = 'flex';
+        }
+
+        function closeInspection() { document.getElementById('inspection-modal').style.display = 'none'; }
+        function sleep(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
+        window.onload = init;
+    </script>
+</body>
+</html>
